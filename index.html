@@ -141,16 +141,15 @@
 
   .actionbar{
     position:fixed;bottom:0;left:0;right:0;background:var(--card);
-    border-top:1px solid var(--line);padding:9px 10px calc(9px + env(safe-area-inset-bottom));
-    display:flex;gap:6px;z-index:10;
+    border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    display:flex;gap:8px;z-index:10;
   }
   button.act{
-    font-family:'Inter',sans-serif;font-weight:600;font-size:12px;
-    border-radius:9px;padding:11px 4px;cursor:pointer;border:1.5px solid var(--line);
+    font-family:'Inter',sans-serif;font-weight:600;font-size:13px;
+    border-radius:10px;padding:13px 8px;cursor:pointer;border:1.5px solid var(--line);
     background:var(--bg);color:var(--ink);flex:1;min-height:var(--tap);
   }
-  button.act.primary{background:var(--accent);border-color:var(--accent-dark);color:#fff;}
-  button.act.whatsapp{background:#25D366;border-color:#1DA851;color:#fff;}
+  button.act.primary{background:var(--accent);border-color:var(--accent-dark);color:#fff;flex:1.3;}
   button.act:active{transform:scale(.97);}
   #status{
     position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));
@@ -375,8 +374,6 @@
         <div><label>Aseguradora</label><input type="text" id="m_aseg" value="Federación Patronal"></div>
         <div><label>N° de póliza</label><input type="text" id="m_poliza" data-mono value="34565214"></div>
       </div>
-      <label>Teléfono de emergencias del seguro</label>
-      <input type="text" id="m_tel_emergencia" data-mono placeholder="0800-...">
     </div></div>
   </section>
 
@@ -409,7 +406,6 @@
   <button class="act" id="btnPng">PNG</button>
   <button class="act" id="btnPdf">PDF</button>
   <button class="act primary" id="btnShare">Compartir</button>
-  <button class="act whatsapp" id="btnWhatsapp">WhatsApp</button>
 </div>
 <div id="status"></div>
 
@@ -708,7 +704,6 @@ async function buildReportHTML(){
         ${row('Vehículo', [val('m_modelo'),val('m_color')].filter(Boolean).join(' — '))}
         ${row('Aseguradora', val('m_aseg'))}
         ${row('N° de póliza', val('m_poliza'))}
-        ${row('Tel. emergencias seguro', val('m_tel_emergencia'))}
       </table>
       <div class="rdamage-wrap">
         <div class="rdamage-col"><div class="rdlbl">Daños marcados</div><img src="${carPngDataUri('mio')}" width="100" height="170"><div class="rdlist">${damageText('mio')}</div></div>
@@ -971,29 +966,6 @@ document.getElementById('btnShare').addEventListener('click', async ()=>{
     const mailto = `mailto:kevinszalai@hotmail.com?subject=${encodeURIComponent(shareText)}&body=${encodeURIComponent(buildTextSummary())}`;
     setTimeout(()=>{ window.location.href = mailto; }, 400);
   }
-});
-
-document.getElementById('btnWhatsapp').addEventListener('click', async ()=>{
-  setStatus('Generando PDF...');
-  const pdf = await buildPdf();
-  const filename = `parte-accidente-${val('f_fecha')||'sf'}.pdf`;
-  const blob = pdf.output('blob');
-  const file = new File([blob], filename, {type:'application/pdf'});
-
-  if(navigator.canShare && navigator.canShare({files:[file]})){
-    try{
-      await navigator.share({files:[file], title:'Parte de accidente'});
-      setStatus('Elegí WhatsApp en el menú y después el chat.' + criticalWarningSuffix());
-    }catch(err){
-      if(err.name !== 'AbortError') setStatus('No se pudo compartir. Probá de nuevo.');
-    }
-    return;
-  }
-
-  pdf.save(filename);
-  const text = buildTextSummary();
-  window.open(`https://wa.me/5491156075594?text=${encodeURIComponent(text)}`, '_blank');
-  setStatus('Tu navegador no permite adjuntar directo: se descargó el PDF y se abrió WhatsApp con el texto. Adjuntalo a mano.');
 });
 
 document.getElementById('btnReset').addEventListener('click', ()=>{
