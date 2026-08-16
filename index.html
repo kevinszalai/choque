@@ -179,6 +179,11 @@
   .sheet-head h3{font-size:16px;font-weight:700;margin:0;}
   .sheet-head button{background:none;border:none;color:var(--ink-soft);font-size:13px;font-weight:600;cursor:pointer;padding:6px 8px;}
   .sheet-empty{font-size:13px;color:var(--ink-faint);text-align:center;padding:20px 0;}
+  .backuprow{display:flex;gap:8px;margin-bottom:14px;}
+  .backuprow button{
+    flex:1;font-size:12px;font-weight:600;color:var(--teal);background:var(--teal-bg);
+    border:1.5px solid var(--teal);border-radius:9px;padding:10px 6px;cursor:pointer;
+  }
   .sheet-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);}
   .sheet-item:last-child{border-bottom:none;}
   .sheet-item-label{font-size:13.5px;font-weight:600;color:var(--ink);}
@@ -389,6 +394,11 @@
     <div class="sheet-head">
       <h3>Mis partes guardados</h3>
       <button type="button" id="closeSheet">Cerrar</button>
+    </div>
+    <div class="backuprow">
+      <button type="button" id="btnExportBackup">Exportar copia de seguridad</button>
+      <button type="button" id="btnImportBackup">Importar copia de seguridad</button>
+      <input type="file" id="importFile" accept="application/json,.json" style="display:none;">
     </div>
     <div id="reportsList"></div>
   </div>
@@ -1092,6 +1102,64 @@ document.getElementById('btnMyReports').addEventListener('click', ()=>{
 document.getElementById('closeSheet').addEventListener('click', closeSheet);
 document.getElementById('reportsOverlay').addEventListener('click', e=>{
   if(e.target.id === 'reportsOverlay') closeSheet();
+});
+
+document.getElementById('btnExportBackup').addEventListener('click', async ()=>{
+  const backup = {
+    type: 'parte-accidente-backup',
+    exportedAt: Date.now(),
+    savedList: getSavedList(),
+    currentDraft: collectState()
+  };
+  const filename = `backup-partes-accidente-${new Date().toISOString().slice(0,10)}.json`;
+  const blob = new Blob([JSON.stringify(backup)], {type:'application/json'});
+  const file = new File([blob], filename, {type:'application/json'});
+
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{
+      await navigator.share({files:[file], title:'Backup parte de accidente'});
+      setStatus('Guardalo en Drive, iCloud o donde prefieras.');
+    }catch(err){
+      if(err.name !== 'AbortError') setStatus('No se pudo exportar. Probá de nuevo.');
+    }
+    return;
+  }
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.download = filename;
+  link.href = url;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  setStatus('Backup descargado.');
+});
+
+document.getElementById('btnImportBackup').addEventListener('click', ()=>{
+  document.getElementById('importFile').click();
+});
+
+document.getElementById('importFile').addEventListener('change', e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    try{
+      const backup = JSON.parse(ev.target.result);
+      if(backup.type !== 'parte-accidente-backup') throw new Error('formato inválido');
+      const existing = getSavedList();
+      const existingIds = new Set(existing.map(x=>x.id));
+      const incoming = (backup.savedList || []).filter(x=>!existingIds.has(x.id));
+      const merged = [...incoming, ...existing].slice(0, 30);
+      setSavedList(merged);
+      renderReportsList();
+      setStatus(`Se importaron ${incoming.length} parte(s) guardados.`);
+    }catch(err){
+      setStatus('El archivo no es un backup válido de esta app.');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
 });
 
 const today = new Date();
