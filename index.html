@@ -754,8 +754,15 @@ function criticalWarningSuffix(){
   const missing = missingCriticalFields();
   return missing.length ? ` Ojo: falta ${missing.join(', ')}.` : '';
 }
+function alertIfMissing(){
+  const missing = missingCriticalFields();
+  if(missing.length){
+    alert(`Falta cargar: ${missing.join(', ')}.\n\nSe va a generar igual, pero conviene completarlo antes de que la otra persona se vaya.`);
+  }
+}
 
 document.getElementById('btnPng').addEventListener('click', async ()=>{
+  alertIfMissing();
   setStatus('Generando PNG...');
   const canvas = await renderReportCanvas();
   const filename = `parte-accidente-${val('f_fecha')||'sf'}.png`;
@@ -894,6 +901,7 @@ async function buildPdf(){
 }
 
 document.getElementById('btnPdf').addEventListener('click', async ()=>{
+  alertIfMissing();
   setStatus('Generando PDF...');
   const pdf = await buildPdf();
   const filename = `parte-accidente-${val('f_fecha')||'sf'}.pdf`;
@@ -945,6 +953,7 @@ function buildTextSummary(){
 }
 
 document.getElementById('btnShare').addEventListener('click', async ()=>{
+  alertIfMissing();
   setStatus('Preparando para compartir...');
   const pdf = await buildPdf();
   const filename = `parte-accidente-${val('f_fecha')||'sf'}.pdf`;
