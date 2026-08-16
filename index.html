@@ -46,6 +46,16 @@
   }
   header.top h1{font-size:22px;font-weight:700;margin:0 0 3px;letter-spacing:-0.3px;}
   header.top .sub{font-size:13px;color:var(--ink-soft);line-height:1.4;}
+  .tipsbox{
+    font-size:12.5px;line-height:1.6;color:var(--ink-soft);
+    background:var(--teal-bg);border:1.5px solid var(--teal);border-radius:10px;
+    padding:13px 15px;margin-top:12px;
+  }
+  .tipsbox .tipstitle{
+    font-size:11.5px;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;
+    color:var(--teal);margin-bottom:6px;
+  }
+  .tipsbox b{color:var(--ink);}
 
   .progress{display:flex;gap:4px;margin:14px 0 0;padding:0 14px;}
   .progress .dot{height:4px;flex:1;border-radius:2px;background:var(--line);}
@@ -225,6 +235,14 @@
   <div class="wrap" style="padding:0;">
     <h1>Parte de accidente</h1>
     <div class="sub">Completá cada paso, tocá para expandir. Al final descargás o enviás todo.</div>
+    <div class="tipsbox" id="tipsBox">
+      <div class="tipstitle">Recordatorios rápidos</div>
+      <b>Pedile a la otra persona:</b> nombre completo, DNI, teléfono, patente, aseguradora y n° de póliza. Foto de su registro y su cédula del auto.<br><br>
+      <b>Dale vos lo mismo</b> — tus datos ya están precargados en el paso 6.<br><br>
+      <b>No firmes nada</b> que la otra persona redacte a mano en el momento.<br><br>
+      <b>Si hay heridos o daños grandes</b>, llamá a la policía para que labren un acta.<br><br>
+      <b>Avisale a tu aseguradora</b> lo antes posible — muchas tienen un límite de 24 a 72hs para denunciar el siniestro.
+    </div>
   </div>
   <div class="progress" id="progress"></div>
 </header>
@@ -718,6 +736,18 @@ function setStatus(msg){
   statusTimer = setTimeout(()=> el.classList.remove('show'), 3800);
 }
 
+function missingCriticalFields(){
+  const missing = [];
+  if(!val('o_dni')) missing.push('DNI de la otra persona');
+  if(!val('o_patente')) missing.push('patente de la otra persona');
+  if(!val('o_nombre')) missing.push('nombre de la otra persona');
+  return missing;
+}
+function criticalWarningSuffix(){
+  const missing = missingCriticalFields();
+  return missing.length ? ` Ojo: falta ${missing.join(', ')}.` : '';
+}
+
 document.getElementById('btnPng').addEventListener('click', async ()=>{
   setStatus('Generando PNG...');
   const canvas = await renderReportCanvas();
@@ -728,7 +758,7 @@ document.getElementById('btnPng').addEventListener('click', async ()=>{
   if(navigator.canShare && navigator.canShare({files:[file]})){
     try{
       await navigator.share({files:[file], title:'Parte de accidente'});
-      setStatus('Elegí "Guardar imagen" en el menú para bajarla a Fotos.');
+      setStatus('Elegí "Guardar imagen" en el menú para bajarla a Fotos.' + criticalWarningSuffix());
     }catch(err){
       setStatus(err.name === 'AbortError' ? '' : 'No se pudo compartir. Probá de nuevo.');
     }
@@ -744,7 +774,7 @@ document.getElementById('btnPng').addEventListener('click', async ()=>{
     link.click();
     document.body.removeChild(link);
     setTimeout(()=>URL.revokeObjectURL(url), 4000);
-    setStatus('PNG descargado.');
+    setStatus('PNG descargado.' + criticalWarningSuffix());
   }catch(err){
     window.open(canvas.toDataURL('image/png'), '_blank');
     setStatus('Se abrió en una pestaña — mantené el dedo sobre la imagen para guardarla.');
@@ -866,7 +896,7 @@ document.getElementById('btnPdf').addEventListener('click', async ()=>{
   if(navigator.canShare && navigator.canShare({files:[file]})){
     try{
       await navigator.share({files:[file], title:'Parte de accidente'});
-      setStatus('Elegí "Guardar en Archivos" para bajarlo al celular.');
+      setStatus('Elegí "Guardar en Archivos" para bajarlo al celular.' + criticalWarningSuffix());
     }catch(err){
       setStatus(err.name === 'AbortError' ? '' : 'No se pudo compartir. Probá de nuevo.');
     }
@@ -882,10 +912,10 @@ document.getElementById('btnPdf').addEventListener('click', async ()=>{
     link.click();
     document.body.removeChild(link);
     setTimeout(()=>URL.revokeObjectURL(url), 4000);
-    setStatus('PDF descargado.');
+    setStatus('PDF descargado.' + criticalWarningSuffix());
   }catch(err){
     pdf.save(filename);
-    setStatus('PDF descargado.');
+    setStatus('PDF descargado.' + criticalWarningSuffix());
   }
 });
 
@@ -900,7 +930,7 @@ document.getElementById('btnShare').addEventListener('click', async ()=>{
   if(navigator.canShare && navigator.canShare({files:[file]})){
     try{
       await navigator.share({files:[file], title:'Parte de accidente', text:shareText});
-      setStatus('Compartido.');
+      setStatus('Compartido.' + criticalWarningSuffix());
     }catch(err){
       if(err.name !== 'AbortError') setStatus('No se pudo compartir. Probá descargar el PDF.');
       else setStatus('');
