@@ -377,7 +377,7 @@
     </div></div>
   </section>
 
-  <div class="note">"Compartir" abre el menú nativo del celular (WhatsApp, mail, Drive, lo que tengas instalado) con el PDF ya adjunto, listo para mandar. Si tu navegador no lo soporta (pasa en algunas compus), se genera igual el PDF para que lo mandes a mano.</div>
+  <div class="note">"PDF" abre o guarda el archivo en el celular (Archivos/vista previa). "Compartir" abre directo el menú nativo (WhatsApp, mail, Drive) con el PDF ya adjunto, listo para mandar.</div>
   <div class="resetrow">
     <button id="btnSaveCopy">Guardar copia para seguir después</button>
     <button id="btnMyReports">Ver partes guardados</button>
@@ -906,17 +906,6 @@ document.getElementById('btnPdf').addEventListener('click', async ()=>{
   const pdf = await buildPdf();
   const filename = `parte-accidente-${val('f_fecha')||'sf'}.pdf`;
   const blob = pdf.output('blob');
-  const file = new File([blob], filename, {type:'application/pdf'});
-
-  if(navigator.canShare && navigator.canShare({files:[file]})){
-    try{
-      await navigator.share({files:[file], title:'Parte de accidente'});
-      setStatus('Elegí "Guardar en Archivos" para bajarlo al celular.' + criticalWarningSuffix());
-    }catch(err){
-      setStatus(err.name === 'AbortError' ? '' : 'No se pudo compartir. Probá de nuevo.');
-    }
-    return;
-  }
 
   try{
     const url = URL.createObjectURL(blob);
@@ -927,7 +916,7 @@ document.getElementById('btnPdf').addEventListener('click', async ()=>{
     link.click();
     document.body.removeChild(link);
     setTimeout(()=>URL.revokeObjectURL(url), 4000);
-    setStatus('PDF descargado.' + criticalWarningSuffix());
+    setStatus('PDF listo. Si se abrió en una vista previa, tocá el ícono de compartir de ahí para guardarlo en Archivos.' + criticalWarningSuffix());
   }catch(err){
     pdf.save(filename);
     setStatus('PDF descargado.' + criticalWarningSuffix());
