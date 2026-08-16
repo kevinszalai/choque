@@ -75,13 +75,14 @@
   section.card.open .sec-body{max-height:2400px;}
   .sec-inner{padding:2px 16px 18px;}
 
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
-  @media(max-width:480px){.grid3{grid-template-columns:1fr 1fr;}}
+  .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;}
+  .grid3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:10px;}
+  @media(max-width:480px){.grid3{grid-template-columns:minmax(0,1fr);}}
+  @media(max-width:400px){.grid2{grid-template-columns:minmax(0,1fr);}}
 
   label{display:block;font-size:12.5px;color:var(--ink-soft);margin-bottom:5px;font-weight:500;}
   input[type=text],input[type=date],input[type=time],textarea{
-    width:100%;border:1.5px solid var(--line);border-radius:9px;padding:12px 12px;
+    width:100%;min-width:0;border:1.5px solid var(--line);border-radius:9px;padding:12px 12px;
     font-family:'Inter',sans-serif;font-size:16px;color:var(--ink);background:#FBFBF9;
     margin-bottom:12px;min-height:var(--tap);
   }
@@ -283,20 +284,20 @@
       <div class="subhead">Conductor</div>
       <div class="grid2">
         <div><label>Nombre completo</label><input type="text" id="m_nombre" value="Kevin Szalai"></div>
-        <div><label>DNI</label><input type="text" id="m_dni" data-mono></div>
-        <div><label>Teléfono</label><input type="text" id="m_tel" data-mono></div>
+        <div><label>DNI</label><input type="text" id="m_dni" data-mono value="38305421"></div>
+        <div><label>Teléfono</label><input type="text" id="m_tel" data-mono value="1156075594"></div>
         <div><label>Email</label><input type="text" id="m_email" value="kevinszalai@hotmail.com"></div>
       </div>
       <div class="subhead">Vehículo</div>
       <div class="grid3">
-        <div><label>Patente</label><input type="text" id="m_patente" data-mono></div>
-        <div><label>Marca / modelo</label><input type="text" id="m_modelo"></div>
-        <div><label>Color</label><input type="text" id="m_color"></div>
+        <div><label>Patente</label><input type="text" id="m_patente" data-mono value="AG238KQ"></div>
+        <div><label>Marca / modelo</label><input type="text" id="m_modelo" value="Toyota Yaris S"></div>
+        <div><label>Color</label><input type="text" id="m_color" value="Blanco"></div>
       </div>
       <div class="subhead">Seguro</div>
       <div class="grid2">
-        <div><label>Aseguradora</label><input type="text" id="m_aseg"></div>
-        <div><label>N° de póliza</label><input type="text" id="m_poliza" data-mono></div>
+        <div><label>Aseguradora</label><input type="text" id="m_aseg" value="Federación Patronal"></div>
+        <div><label>N° de póliza</label><input type="text" id="m_poliza" data-mono value="34565214"></div>
       </div>
     </div></div>
   </section>
@@ -598,10 +599,13 @@ document.getElementById('btnShare').addEventListener('click', async ()=>{
 
 document.getElementById('btnReset').addEventListener('click', ()=>{
   if(!confirm('¿Borrar todos los datos cargados y empezar de nuevo?')) return;
+  const defaults = {
+    m_nombre:'Kevin Szalai', m_email:'kevinszalai@hotmail.com',
+    m_dni:'38305421', m_tel:'1156075594', m_patente:'AG238KQ',
+    m_modelo:'Toyota Yaris S', m_color:'Blanco', m_aseg:'Federación Patronal', m_poliza:'34565214'
+  };
   document.querySelectorAll('input[type=text],input[type=date],input[type=time],textarea').forEach(el=>{
-    if(el.id==='m_nombre'){ el.value='Kevin Szalai'; return; }
-    if(el.id==='m_email'){ el.value='kevinszalai@hotmail.com'; return; }
-    el.value='';
+    el.value = defaults[el.id] || '';
   });
   ['mio','otro','escena'].forEach(c=>{ photos[c].length = 0; renderThumbs(c); });
   ['mio','otro'].forEach(key=>{
