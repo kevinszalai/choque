@@ -149,11 +149,37 @@
     opacity:0;pointer-events:none;transition:opacity .2s ease;
   }
   #status.show{opacity:1;}
-  .resetrow{text-align:center;margin:14px 0 4px;}
+  .resetrow{text-align:center;margin:14px 0 4px;display:flex;flex-direction:column;gap:4px;}
   .resetrow button{
     background:none;border:none;color:var(--ink-faint);font-size:12.5px;
     text-decoration:underline;cursor:pointer;padding:8px;
   }
+  #btnSaveCopy{color:var(--teal);font-weight:600;}
+
+  .sheet-overlay{
+    position:fixed;inset:0;background:rgba(24,36,48,.45);z-index:30;
+    display:none;align-items:flex-end;justify-content:center;
+  }
+  .sheet-overlay.show{display:flex;}
+  .sheet{
+    background:var(--card);width:100%;max-width:640px;max-height:75vh;overflow-y:auto;
+    border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));
+  }
+  .sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+  .sheet-head h3{font-size:16px;font-weight:700;margin:0;}
+  .sheet-head button{background:none;border:none;color:var(--ink-soft);font-size:13px;font-weight:600;cursor:pointer;padding:6px 8px;}
+  .sheet-empty{font-size:13px;color:var(--ink-faint);text-align:center;padding:20px 0;}
+  .sheet-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);}
+  .sheet-item:last-child{border-bottom:none;}
+  .sheet-item-label{font-size:13.5px;font-weight:600;color:var(--ink);}
+  .sheet-item-date{font-size:11.5px;color:var(--ink-faint);margin-top:2px;}
+  .sheet-item-actions{display:flex;gap:6px;flex-shrink:0;}
+  .sheet-item-actions button{
+    font-size:12px;font-weight:600;border-radius:8px;padding:8px 10px;border:1.5px solid var(--line);
+    background:var(--bg);cursor:pointer;
+  }
+  .sheet-open{color:var(--teal);border-color:var(--teal)!important;background:var(--teal-bg)!important;}
+  .sheet-del{color:var(--accent-dark);}
   .note{font-size:12px;color:var(--ink-soft);background:var(--teal-bg);border-radius:10px;padding:12px 14px;margin:6px 0 14px;line-height:1.5;}
 
   #report{
@@ -325,14 +351,30 @@
         <div><label>Aseguradora</label><input type="text" id="m_aseg" value="Federación Patronal"></div>
         <div><label>N° de póliza</label><input type="text" id="m_poliza" data-mono value="34565214"></div>
       </div>
+      <label>Teléfono de emergencias del seguro</label>
+      <input type="text" id="m_tel_emergencia" data-mono placeholder="0800-...">
     </div></div>
   </section>
 
   <div class="note">"Compartir" abre el menú nativo del celular (WhatsApp, mail, Drive, lo que tengas instalado) con el PDF ya adjunto, listo para mandar. Si tu navegador no lo soporta (pasa en algunas compus), se genera igual el PDF para que lo mandes a mano.</div>
-  <div class="resetrow"><button id="btnReset">Empezar un parte nuevo</button></div>
+  <div class="resetrow">
+    <button id="btnSaveCopy">Guardar copia para seguir después</button>
+    <button id="btnMyReports">Ver partes guardados</button>
+    <button id="btnReset">Empezar un parte nuevo</button>
+  </div>
 </div>
 
 <div id="report"></div>
+
+<div class="sheet-overlay" id="reportsOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h3>Mis partes guardados</h3>
+      <button type="button" id="closeSheet">Cerrar</button>
+    </div>
+    <div id="reportsList"></div>
+  </div>
+</div>
 
 <div class="actionbar">
   <button class="act" id="btnPng">PNG</button>
@@ -428,6 +470,7 @@ function buildCar(svgId, key){
       damageState[key][z] = !damageState[key][z];
       el.classList.toggle('on', damageState[key][z]);
       updateProgress();
+      scheduleAutosave();
     });
   });
 }
@@ -437,17 +480,39 @@ buildCar('carOtro','otro');
 const photos = {mio:[], otro:[], escena:[]};
 const photoCatLabels = {mio:'Mi vehículo', otro:'Otra persona', escena:'Escena general'};
 
+function compressPhoto(dataUrl, maxDim, quality){
+  return new Promise(resolve=>{
+    const img = new Image();
+    img.onload = ()=>{
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if(w >= h && w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; }
+      else if(h > w && h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = ()=> resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 document.querySelectorAll('.photos-drop').forEach(drop=>{
   const cat = drop.dataset.cat;
   const input = document.querySelector(`.photoInput[data-cat="${cat}"]`);
   drop.addEventListener('click', ()=>input.click());
   input.addEventListener('change', e=>{
-    [...e.target.files].forEach(file=>{
+    const files = [...e.target.files];
+    files.forEach(file=>{
       const reader = new FileReader();
-      reader.onload = ev=>{
-        photos[cat].push(ev.target.result);
+      reader.onload = async ev=>{
+        setStatus('Optimizando foto...');
+        const compressed = await compressPhoto(ev.target.result, 1500, 0.82);
+        photos[cat].push(compressed);
         renderThumbs(cat);
         updateProgress();
+        scheduleAutosave();
+        setStatus('');
       };
       reader.readAsDataURL(file);
     });
@@ -465,6 +530,7 @@ function renderThumbs(cat){
       photos[cat].splice(+b.dataset.i,1);
       renderThumbs(cat);
       updateProgress();
+      scheduleAutosave();
     });
   });
 }
@@ -498,7 +564,7 @@ function updateProgress(){
     badge.textContent = sectionFilled(sec) ? '✓' : (secOrder.indexOf(sec)+1);
   });
 }
-document.querySelectorAll('input,textarea').forEach(el=>el.addEventListener('input', updateProgress));
+document.querySelectorAll('input,textarea').forEach(el=>el.addEventListener('input', ()=>{ updateProgress(); scheduleAutosave(); }));
 
 function carPngDataUri(key){
   const scale = 3;
@@ -612,6 +678,7 @@ async function buildReportHTML(){
         ${row('Vehículo', [val('m_modelo'),val('m_color')].filter(Boolean).join(' — '))}
         ${row('Aseguradora', val('m_aseg'))}
         ${row('N° de póliza', val('m_poliza'))}
+        ${row('Tel. emergencias seguro', val('m_tel_emergencia'))}
       </table>
       <div class="rdamage-wrap">
         <div class="rdamage-col"><div class="rdlbl">Daños marcados</div><img src="${carPngDataUri('mio')}" width="100" height="170"><div class="rdlist">${damageText('mio')}</div></div>
@@ -654,11 +721,34 @@ function setStatus(msg){
 document.getElementById('btnPng').addEventListener('click', async ()=>{
   setStatus('Generando PNG...');
   const canvas = await renderReportCanvas();
-  const link = document.createElement('a');
-  link.download = `parte-accidente-${val('f_fecha')||'sf'}.png`;
-  link.href = canvas.toDataURL('image/png');
-  link.click();
-  setStatus('PNG descargado.');
+  const filename = `parte-accidente-${val('f_fecha')||'sf'}.png`;
+  const blob = await new Promise(res=>canvas.toBlob(res,'image/png'));
+  const file = new File([blob], filename, {type:'image/png'});
+
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{
+      await navigator.share({files:[file], title:'Parte de accidente'});
+      setStatus('Elegí "Guardar imagen" en el menú para bajarla a Fotos.');
+    }catch(err){
+      setStatus(err.name === 'AbortError' ? '' : 'No se pudo compartir. Probá de nuevo.');
+    }
+    return;
+  }
+
+  try{
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = url;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    setStatus('PNG descargado.');
+  }catch(err){
+    window.open(canvas.toDataURL('image/png'), '_blank');
+    setStatus('Se abrió en una pestaña — mantené el dedo sobre la imagen para guardarla.');
+  }
 });
 
 async function buildPdf(){
@@ -769,8 +859,34 @@ async function buildPdf(){
 document.getElementById('btnPdf').addEventListener('click', async ()=>{
   setStatus('Generando PDF...');
   const pdf = await buildPdf();
-  pdf.save(`parte-accidente-${val('f_fecha')||'sf'}.pdf`);
-  setStatus('PDF descargado.');
+  const filename = `parte-accidente-${val('f_fecha')||'sf'}.pdf`;
+  const blob = pdf.output('blob');
+  const file = new File([blob], filename, {type:'application/pdf'});
+
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{
+      await navigator.share({files:[file], title:'Parte de accidente'});
+      setStatus('Elegí "Guardar en Archivos" para bajarlo al celular.');
+    }catch(err){
+      setStatus(err.name === 'AbortError' ? '' : 'No se pudo compartir. Probá de nuevo.');
+    }
+    return;
+  }
+
+  try{
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = url;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    setStatus('PDF descargado.');
+  }catch(err){
+    pdf.save(filename);
+    setStatus('PDF descargado.');
+  }
 });
 
 document.getElementById('btnShare').addEventListener('click', async ()=>{
@@ -826,13 +942,147 @@ document.getElementById('btnReset').addEventListener('click', ()=>{
   document.querySelectorAll('.zone.on').forEach(el=>el.classList.remove('on'));
   document.querySelectorAll('section.card').forEach((c,i)=>c.classList.toggle('open', i===0));
   updateProgress();
+  try{ localStorage.removeItem(AUTOSAVE_KEY); }catch(e){}
   setStatus('Parte reiniciado.');
+});
+
+const AUTOSAVE_KEY = 'parte_accidente_draft_v1';
+let autosaveTimer = null;
+function scheduleAutosave(){
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(saveDraft, 700);
+}
+function collectState(){
+  const fields = {};
+  document.querySelectorAll('input[type=text],input[type=date],input[type=time],textarea').forEach(el=>{ fields[el.id] = el.value; });
+  return {
+    fields,
+    damageState: {mio:{...damageState.mio}, otro:{...damageState.otro}},
+    photos: {mio:[...photos.mio], otro:[...photos.otro], escena:[...photos.escena]},
+    savedAt: Date.now()
+  };
+}
+function saveDraft(){
+  const state = collectState();
+  try{
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(state));
+  }catch(e){
+    try{
+      const light = {...state, photos:{mio:[],otro:[],escena:[]}, photosOmitted:true};
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(light));
+    }catch(e2){ /* sin espacio, seguimos igual */ }
+  }
+}
+function applyDamageVisuals(){
+  document.querySelectorAll('#carMio .zone').forEach(el=> el.classList.toggle('on', !!damageState.mio[el.dataset.zone]));
+  document.querySelectorAll('#carOtro .zone').forEach(el=> el.classList.toggle('on', !!damageState.otro[el.dataset.zone]));
+}
+function restoreDraft(state){
+  Object.keys(state.fields||{}).forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.value = state.fields[id];
+  });
+  if(state.damageState){
+    damageState.mio = {}; damageState.otro = {};
+    Object.assign(damageState.mio, state.damageState.mio||{});
+    Object.assign(damageState.otro, state.damageState.otro||{});
+    applyDamageVisuals();
+  }
+  if(state.photos){
+    ['mio','otro','escena'].forEach(c=>{
+      photos[c].length = 0;
+      (state.photos[c]||[]).forEach(p=>photos[c].push(p));
+      renderThumbs(c);
+    });
+  }
+  updateProgress();
+}
+
+const SAVED_KEY = 'parte_accidente_saved_v1';
+function getSavedList(){
+  try{ return JSON.parse(localStorage.getItem(SAVED_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function setSavedList(list){
+  try{ localStorage.setItem(SAVED_KEY, JSON.stringify(list)); return true; }
+  catch(e){ setStatus('No se pudo guardar: sin espacio libre en el celular.'); return false; }
+}
+
+document.getElementById('btnSaveCopy').addEventListener('click', ()=>{
+  const state = collectState();
+  const label = [val('f_fecha'), val('o_nombre') || val('f_ciudad') || 'Sin nombre'].filter(Boolean).join(' — ') || 'Parte sin datos';
+  const list = getSavedList();
+  list.unshift({ id: Date.now().toString(36), label, savedAt: Date.now(), state });
+  if(list.length > 15) list.length = 15;
+  if(setSavedList(list)) setStatus('Copia guardada. La encontrás en "Ver partes guardados".');
+});
+
+function renderReportsList(){
+  const list = getSavedList();
+  const box = document.getElementById('reportsList');
+  if(!list.length){
+    box.innerHTML = '<p class="sheet-empty">Todavía no guardaste ninguna copia.</p>';
+    return;
+  }
+  box.innerHTML = list.map(item=>{
+    const d = new Date(item.savedAt);
+    const dateStr = d.toLocaleDateString('es-AR') + ' · ' + d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="sheet-item">
+      <div class="sheet-item-info"><div class="sheet-item-label">${item.label}</div><div class="sheet-item-date">Guardado ${dateStr}</div></div>
+      <div class="sheet-item-actions">
+        <button class="sheet-open" data-id="${item.id}">Abrir</button>
+        <button class="sheet-del" data-id="${item.id}">Eliminar</button>
+      </div>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('.sheet-open').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const item = getSavedList().find(x=>x.id === b.dataset.id);
+      if(!item) return;
+      restoreDraft(item.state);
+      closeSheet();
+      setStatus('Parte cargado.');
+    });
+  });
+  box.querySelectorAll('.sheet-del').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      if(!confirm('¿Eliminar esta copia guardada? No se puede deshacer.')) return;
+      setSavedList(getSavedList().filter(x=>x.id !== b.dataset.id));
+      renderReportsList();
+    });
+  });
+}
+
+function closeSheet(){ document.getElementById('reportsOverlay').classList.remove('show'); }
+
+document.getElementById('btnMyReports').addEventListener('click', ()=>{
+  renderReportsList();
+  document.getElementById('reportsOverlay').classList.add('show');
+});
+document.getElementById('closeSheet').addEventListener('click', closeSheet);
+document.getElementById('reportsOverlay').addEventListener('click', e=>{
+  if(e.target.id === 'reportsOverlay') closeSheet();
 });
 
 const today = new Date();
 document.getElementById('f_fecha').value = today.toISOString().slice(0,10);
 document.getElementById('f_hora').value = today.toTimeString().slice(0,5);
 updateProgress();
+
+try{
+  const savedRaw = localStorage.getItem(AUTOSAVE_KEY);
+  if(savedRaw){
+    const saved = JSON.parse(savedRaw);
+    const minsAgo = Math.max(1, Math.round((Date.now() - (saved.savedAt||0)) / 60000));
+    const when = minsAgo < 60 ? `hace ${minsAgo} min` : `hace ${Math.round(minsAgo/60)} h`;
+    if(confirm(`Encontramos un parte sin terminar, guardado ${when}. ¿Querés continuar donde lo dejaste?`)){
+      restoreDraft(saved);
+      setStatus(saved.photosOmitted ? 'Recuperado (las fotos no se pudieron guardar por espacio).' : 'Parte recuperado.');
+    } else {
+      localStorage.removeItem(AUTOSAVE_KEY);
+    }
+  }
+}catch(e){ /* si algo falla, seguimos con el form en blanco */ }
 </script>
 </body>
 </html>
