@@ -330,6 +330,20 @@
 <div id="status" style="position:fixed;bottom:70px;left:0;right:0;"></div>
 
 <script>
+async function fetchCrossStreets(lat, lon, mainStreet){
+  try{
+    const query = `[out:json][timeout:10];way(around:45,${lat},${lon})[highway][name];out tags;`;
+    const res = await fetch('https://overpass-api.de/api/interpreter', {method:'POST', body: query});
+    const data = await res.json();
+    const names = new Set();
+    (data.elements||[]).forEach(el=>{
+      const n = el.tags && el.tags.name;
+      if(n && n !== mainStreet) names.add(n);
+    });
+    return [...names].slice(0,2);
+  }catch(e){ return []; }
+}
+
 document.getElementById('btnGeo').addEventListener('click', ()=>{
   const btn = document.getElementById('btnGeo');
   if(!navigator.geolocation){
@@ -347,10 +361,18 @@ document.getElementById('btnGeo').addEventListener('click', ()=>{
       const addr = data.address || {};
       const street = [addr.road, addr.house_number].filter(Boolean).join(' ');
       const city = addr.city || addr.town || addr.village || addr.suburb || addr.municipality || '';
-      document.getElementById('f_lugar').value = street || data.display_name || `Lat ${latitude.toFixed(5)}, Lon ${longitude.toFixed(5)}`;
+      let lugarText = street || data.display_name || `Lat ${latitude.toFixed(5)}, Lon ${longitude.toFixed(5)}`;
+
+      btn.textContent = 'Buscando calles...';
+      const cross = await fetchCrossStreets(latitude, longitude, addr.road);
+      if(cross.length){
+        lugarText += ` — cerca de ${cross.join(' y ')}`;
+      }
+
+      document.getElementById('f_lugar').value = lugarText;
       const ciudadEl = document.getElementById('f_ciudad');
       if(city && !ciudadEl.value.trim()) ciudadEl.value = city;
-      setStatus('Ubicación cargada.');
+      setStatus(cross.length ? 'Ubicación y calles cercanas cargadas — revisá que sean las correctas.' : 'Ubicación cargada.');
     }catch(err){
       document.getElementById('f_lugar').value = `Lat ${latitude.toFixed(5)}, Lon ${longitude.toFixed(5)}`;
       setStatus('Se cargaron las coordenadas, no se pudo traducir a dirección.');
