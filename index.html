@@ -141,7 +141,14 @@
   }
   button.act.primary{background:var(--accent);border-color:var(--accent-dark);color:#fff;flex:1.3;}
   button.act:active{transform:scale(.97);}
-  #status{font-size:12px;color:var(--ink-soft);text-align:center;padding:6px 14px 0;min-height:16px;}
+  #status{
+    position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));
+    transform:translateX(-50%);max-width:90%;
+    background:var(--ink);color:#fff;font-size:12.5px;font-weight:500;text-align:center;
+    padding:9px 16px;border-radius:22px;z-index:20;
+    opacity:0;pointer-events:none;transition:opacity .2s ease;
+  }
+  #status.show{opacity:1;}
   .resetrow{text-align:center;margin:14px 0 4px;}
   .resetrow button{
     background:none;border:none;color:var(--ink-faint);font-size:12.5px;
@@ -153,18 +160,19 @@
     position:fixed;top:-99999px;left:0;width:760px;background:#fff;color:#182430;
     font-family:'Inter',sans-serif;padding:0;
   }
-  #report .rpage{padding:44px 46px 36px;}
+  #report .rblock{padding:0 46px 20px;}
+  #report .rblock-head{padding-top:40px;}
+  #report .rblock-foot{border-top:1px solid #E1E3DC;padding-top:14px;padding-bottom:36px;margin-top:2px;}
   #report .rheadbar{height:8px;background:#E0552B;}
   #report .rhead{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2.5px solid #182430;padding-bottom:14px;margin-bottom:18px;}
   #report h1{font-size:25px;font-weight:700;margin:0;letter-spacing:-0.3px;}
   #report .rsub{font-size:12px;color:#5C6773;margin-top:3px;}
   #report .rgenerated{font-size:11px;color:#93998F;text-align:right;}
-  #report .rsummary{display:flex;gap:0;margin-bottom:22px;border:1px solid #E1E3DC;border-radius:8px;overflow:hidden;}
+  #report .rsummary{display:flex;gap:0;border:1px solid #E1E3DC;border-radius:8px;overflow:hidden;}
   #report .rsummary .cell{flex:1;padding:10px 14px;border-right:1px solid #E1E3DC;}
   #report .rsummary .cell:last-child{border-right:none;}
   #report .rsummary .cell .lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#93998F;font-weight:600;margin-bottom:3px;}
   #report .rsummary .cell .valx{font-size:15px;font-weight:700;font-family:'IBM Plex Mono',monospace;}
-  #report .rsec{margin-bottom:20px;}
   #report .rsec .rsechead{display:flex;align-items:center;gap:8px;margin:0 0 10px;}
   #report .rsec .rsechead .dot{width:9px;height:9px;border-radius:50%;background:#E0552B;flex-shrink:0;}
   #report .rsec h3{font-size:14.5px;margin:0;font-weight:700;letter-spacing:0.2px;}
@@ -176,13 +184,13 @@
   #report .rtext{font-size:12.5px;background:#F7F7F5;border-radius:6px;padding:10px 12px;line-height:1.55;}
   #report .rdamage-wrap{display:flex;gap:20px;margin-top:10px;align-items:flex-start;}
   #report .rdamage-col{flex:1;text-align:center;}
-  #report .rdamage-col img{width:100px;}
+  #report .rdamage-col img{width:100px;height:170px;display:block;margin:0 auto;object-fit:contain;}
   #report .rdamage-col .rdlbl{font-size:11px;color:#5C6773;font-weight:600;margin-bottom:4px;}
   #report .rdamage-col .rdlist{font-size:11px;color:#182430;margin-top:4px;}
   #report .rcatlabel{font-size:11.5px;font-weight:700;color:#5C6773;margin:10px 0 5px;text-transform:uppercase;letter-spacing:0.4px;}
   #report .rphotos{display:flex;flex-wrap:wrap;gap:7px;}
-  #report .rphotos img{width:110px;height:110px;object-fit:cover;border-radius:5px;border:1px solid #E1E3DC;}
-  #report .rfooter{border-top:1px solid #E1E3DC;padding-top:12px;margin-top:8px;font-size:10.5px;color:#93998F;text-align:center;}
+  #report .rphotos img{width:170px;height:170px;object-fit:cover;border-radius:5px;border:1px solid #E1E3DC;display:block;}
+  #report .rfooter{font-size:10.5px;color:#93998F;text-align:center;}
 </style>
 </head>
 <body>
@@ -331,7 +339,7 @@
   <button class="act" id="btnPdf">PDF</button>
   <button class="act primary" id="btnShare">Compartir</button>
 </div>
-<div id="status" style="position:fixed;bottom:70px;left:0;right:0;"></div>
+<div id="status"></div>
 
 <script>
 async function fetchCrossStreets(lat, lon, mainStreet){
@@ -492,36 +500,67 @@ function updateProgress(){
 }
 document.querySelectorAll('input,textarea').forEach(el=>el.addEventListener('input', updateProgress));
 
-function carSvgDataUri(key){
-  let paths = '';
+function carPngDataUri(key){
+  const scale = 3;
+  const canvas = document.createElement('canvas');
+  canvas.width = 200 * scale;
+  canvas.height = 340 * scale;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
   for(const z in zonesPath){
     const on = damageState[key][z];
-    const fill = on ? '#E0552B' : '#EEEFEA';
-    const stroke = on ? '#B5401E' : '#182430';
-    paths += `<path d="${zonesPath[z]}" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+    ctx.fillStyle = on ? '#E0552B' : '#EEEFEA';
+    ctx.strokeStyle = on ? '#B5401E' : '#182430';
+    ctx.lineWidth = 2;
+    const path = new Path2D(zonesPath[z]);
+    ctx.fill(path);
+    ctx.stroke(path);
   }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 340">${paths}</svg>`;
-  return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+  return canvas.toDataURL('image/png');
 }
 
-function buildReportHTML(){
+function squareThumb(src, size){
+  return new Promise(resolve=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const scale = Math.max(size / img.naturalWidth, size / img.naturalHeight);
+      const sw = size / scale, sh = size / scale;
+      const sx = (img.naturalWidth - sw) / 2, sy = (img.naturalHeight - sh) / 2;
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, size, size);
+      resolve(canvas.toDataURL('image/jpeg', 0.87));
+    };
+    img.onerror = ()=> resolve(src);
+    img.src = src;
+  });
+}
+
+async function buildReportHTML(){
   const fecha = val('f_fecha') || '—';
   const hora = val('f_hora') || '—';
   const row = (label, value) => `<tr><td class="k">${label}</td><td class="v">${value || '—'}</td></tr>`;
   const sechead = (n,label) => `<div class="rsechead"><span class="dot"></span><h3>${n}. ${label}</h3></div>`;
 
+  const thumbSize = 340;
+  const thumbs = {};
+  for(const c of ['otro','mio','escena']){
+    thumbs[c] = await Promise.all(photos[c].map(p=>squareThumb(p, thumbSize)));
+  }
+
   const photoBlock = ['otro','mio','escena'].some(c=>photos[c].length) ? `
-    <div class="rsec">
+    <div class="rblock rsec rblock-fotos">
       ${sechead(4,'Fotos')}
-      ${['otro','mio','escena'].map(c=> photos[c].length ? `<div class="rcatlabel">${photoCatLabels[c]} (${photos[c].length})</div><div class="rphotos">${photos[c].map(p=>`<img src="${p}">`).join('')}</div>` : '').join('')}
+      ${['otro','mio','escena'].map(c=> thumbs[c].length ? `<div class="rcatlabel">${photoCatLabels[c]} (${thumbs[c].length})</div><div class="rphotos">${thumbs[c].map(p=>`<img src="${p}">`).join('')}</div>` : '').join('')}
     </div>` : '';
 
   const notasBlock = val('f_notas') ? `
-    <div class="rsec">${sechead(5,'Notas adicionales')}<div class="rtext">${val('f_notas')}</div></div>` : '';
+    <div class="rblock rsec rblock-notas">${sechead(5,'Notas adicionales')}<div class="rtext">${val('f_notas')}</div></div>` : '';
 
   return `
     <div class="rheadbar"></div>
-    <div class="rpage">
+    <div class="rblock rblock-head">
       <div class="rhead">
         <div><h1>Parte de accidente</h1><div class="rsub">Registro personal de Kevin Szalai</div></div>
         <div class="rgenerated">Generado el<br>${new Date().toLocaleString('es-AR')}</div>
@@ -533,62 +572,60 @@ function buildReportHTML(){
         <div class="cell"><div class="lbl">Mi patente</div><div class="valx">${val('m_patente')||'—'}</div></div>
         <div class="cell"><div class="lbl">Patente otro</div><div class="valx">${val('o_patente')||'—'}</div></div>
       </div>
-
-      <div class="rsec">
-        ${sechead(1,'Datos del hecho')}
-        <table class="rtable">
-          ${row('Ciudad', val('f_ciudad'))}
-          ${row('Lugar exacto', val('f_lugar'))}
-        </table>
-        ${val('f_dinamica') ? `<div class="rtext" style="margin-top:8px;"><b>Cómo ocurrió:</b> ${val('f_dinamica')}</div>` : ''}
-      </div>
-
-      <div class="rsec">
-        ${sechead(2,'Datos de la otra persona')}
-        <table class="rtable">
-          ${row('Nombre', val('o_nombre'))}
-          ${row('DNI', val('o_dni'))}
-          ${row('Teléfono', val('o_tel'))}
-          ${row('Email', val('o_email'))}
-          ${row('Patente', val('o_patente'))}
-          ${row('Vehículo', [val('o_modelo'),val('o_color')].filter(Boolean).join(' — '))}
-          ${row('Aseguradora', val('o_aseg'))}
-          ${row('N° de póliza', val('o_poliza'))}
-          ${row('Testigos', val('o_testigos'))}
-        </table>
-        <div class="rdamage-wrap">
-          <div class="rdamage-col"><div class="rdlbl">Daños marcados</div><img src="${carSvgDataUri('otro')}" width="100" height="170"><div class="rdlist">${damageText('otro')}</div></div>
-        </div>
-      </div>
-
-      <div class="rsec">
-        ${sechead(3,'Mis datos')}
-        <table class="rtable">
-          ${row('Nombre', val('m_nombre'))}
-          ${row('DNI', val('m_dni'))}
-          ${row('Teléfono', val('m_tel'))}
-          ${row('Email', val('m_email'))}
-          ${row('Patente', val('m_patente'))}
-          ${row('Vehículo', [val('m_modelo'),val('m_color')].filter(Boolean).join(' — '))}
-          ${row('Aseguradora', val('m_aseg'))}
-          ${row('N° de póliza', val('m_poliza'))}
-        </table>
-        <div class="rdamage-wrap">
-          <div class="rdamage-col"><div class="rdlbl">Daños marcados</div><img src="${carSvgDataUri('mio')}" width="100" height="170"><div class="rdlist">${damageText('mio')}</div></div>
-        </div>
-      </div>
-
-      ${photoBlock}
-      ${notasBlock}
-
-      <div class="rfooter">Documento generado como registro personal — no reemplaza la denuncia policial ni el formulario de tu aseguradora.</div>
     </div>
+
+    <div class="rblock rsec">
+      ${sechead(1,'Datos del hecho')}
+      <table class="rtable">
+        ${row('Ciudad', val('f_ciudad'))}
+        ${row('Lugar exacto', val('f_lugar'))}
+      </table>
+      ${val('f_dinamica') ? `<div class="rtext" style="margin-top:8px;"><b>Cómo ocurrió:</b> ${val('f_dinamica')}</div>` : ''}
+    </div>
+
+    <div class="rblock rsec">
+      ${sechead(2,'Datos de la otra persona')}
+      <table class="rtable">
+        ${row('Nombre', val('o_nombre'))}
+        ${row('DNI', val('o_dni'))}
+        ${row('Teléfono', val('o_tel'))}
+        ${row('Email', val('o_email'))}
+        ${row('Patente', val('o_patente'))}
+        ${row('Vehículo', [val('o_modelo'),val('o_color')].filter(Boolean).join(' — '))}
+        ${row('Aseguradora', val('o_aseg'))}
+        ${row('N° de póliza', val('o_poliza'))}
+        ${row('Testigos', val('o_testigos'))}
+      </table>
+      <div class="rdamage-wrap">
+        <div class="rdamage-col"><div class="rdlbl">Daños marcados</div><img src="${carPngDataUri('otro')}" width="100" height="170"><div class="rdlist">${damageText('otro')}</div></div>
+      </div>
+    </div>
+
+    <div class="rblock rsec">
+      ${sechead(3,'Mis datos')}
+      <table class="rtable">
+        ${row('Nombre', val('m_nombre'))}
+        ${row('DNI', val('m_dni'))}
+        ${row('Teléfono', val('m_tel'))}
+        ${row('Email', val('m_email'))}
+        ${row('Patente', val('m_patente'))}
+        ${row('Vehículo', [val('m_modelo'),val('m_color')].filter(Boolean).join(' — '))}
+        ${row('Aseguradora', val('m_aseg'))}
+        ${row('N° de póliza', val('m_poliza'))}
+      </table>
+      <div class="rdamage-wrap">
+        <div class="rdamage-col"><div class="rdlbl">Daños marcados</div><img src="${carPngDataUri('mio')}" width="100" height="170"><div class="rdlist">${damageText('mio')}</div></div>
+      </div>
+    </div>
+
+    ${photoBlock}
+    ${notasBlock}
   `;
 }
 
 async function renderReportCanvas(){
   const rep = document.getElementById('report');
-  rep.innerHTML = buildReportHTML();
+  rep.innerHTML = await buildReportHTML();
   rep.style.top = '0px';
   const imgs = Array.from(rep.querySelectorAll('img'));
   await Promise.all(imgs.map(img=>{
@@ -604,7 +641,15 @@ async function renderReportCanvas(){
   return canvas;
 }
 
-function setStatus(msg){ document.getElementById('status').textContent = msg; }
+let statusTimer = null;
+function setStatus(msg){
+  const el = document.getElementById('status');
+  clearTimeout(statusTimer);
+  if(!msg){ el.classList.remove('show'); return; }
+  el.textContent = msg;
+  el.classList.add('show');
+  statusTimer = setTimeout(()=> el.classList.remove('show'), 3800);
+}
 
 document.getElementById('btnPng').addEventListener('click', async ()=>{
   setStatus('Generando PNG...');
@@ -617,24 +662,107 @@ document.getElementById('btnPng').addEventListener('click', async ()=>{
 });
 
 async function buildPdf(){
-  const canvas = await renderReportCanvas();
+  const rep = document.getElementById('report');
+  rep.innerHTML = await buildReportHTML();
+  const imgs = Array.from(rep.querySelectorAll('img'));
+  await Promise.all(imgs.map(img=>{
+    if(img.complete && img.naturalWidth > 0) return Promise.resolve();
+    return new Promise(resolve=>{ img.onload = resolve; img.onerror = resolve; });
+  }));
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF('p','pt','a4');
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
-  const imgW = pageW;
-  const imgH = canvas.height * imgW / canvas.width;
-  let heightLeft = imgH;
-  let position = 0;
-  const imgData = canvas.toDataURL('image/png');
-  pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH);
-  heightLeft -= pageH;
-  while(heightLeft > 0){
-    position = heightLeft - imgH;
-    pdf.addPage();
-    pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH);
-    heightLeft -= pageH;
+  const marginX = 40;
+  const topMargin = 16;
+  const bottomMargin = 16;
+  const usableH = pageH - topMargin - bottomMargin;
+  const ctx = { y: topMargin };
+
+  function ensureSpace(h){
+    if(ctx.y + h > pageH - bottomMargin && ctx.y > topMargin){
+      pdf.addPage();
+      ctx.y = topMargin;
+    }
   }
+
+  async function placeBlock(block){
+    const canvas = await html2canvas(block, {scale:2, backgroundColor:'#ffffff'});
+    const imgW = pageW;
+    const imgH = canvas.height * imgW / canvas.width;
+    const imgData = canvas.toDataURL('image/png');
+
+    if(imgH <= usableH){
+      ensureSpace(imgH);
+      pdf.addImage(imgData, 'PNG', 0, ctx.y, imgW, imgH);
+      ctx.y += imgH;
+    } else {
+      const pxPerPt = canvas.width / imgW;
+      let sY = 0;
+      let remainingPx = canvas.height;
+      while(remainingPx > 0){
+        if(ctx.y >= pageH - bottomMargin - 4){ pdf.addPage(); ctx.y = topMargin; }
+        const availablePt = pageH - bottomMargin - ctx.y;
+        const slicePx = Math.min(remainingPx, availablePt * pxPerPt);
+        const sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width = canvas.width;
+        sliceCanvas.height = slicePx;
+        sliceCanvas.getContext('2d').drawImage(canvas, 0, sY, canvas.width, slicePx, 0, 0, canvas.width, slicePx);
+        const sliceHpt = slicePx / pxPerPt;
+        pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', 0, ctx.y, imgW, sliceHpt);
+        ctx.y += sliceHpt;
+        sY += slicePx;
+        remainingPx -= slicePx;
+        if(remainingPx > 0){ pdf.addPage(); ctx.y = topMargin; }
+      }
+    }
+  }
+
+  async function drawPhotosSection(){
+    ensureSpace(30);
+    pdf.setFillColor(224,85,43);
+    pdf.circle(marginX+3, ctx.y+7, 3, 'F');
+    pdf.setFont('helvetica','bold'); pdf.setFontSize(12); pdf.setTextColor(24,36,48);
+    pdf.text('4. Fotos', marginX+13, ctx.y+10);
+    ctx.y += 24;
+
+    const columns = 3;
+    const gap = 8;
+    const colWidth = (pageW - marginX*2 - gap*(columns-1)) / columns;
+
+    for(const cat of ['otro','mio','escena']){
+      if(!photos[cat].length) continue;
+      ensureSpace(16);
+      pdf.setFont('helvetica','bold'); pdf.setFontSize(9); pdf.setTextColor(92,103,115);
+      pdf.text(`${photoCatLabels[cat].toUpperCase()} (${photos[cat].length})`, marginX, ctx.y+7);
+      ctx.y += 15;
+
+      const thumbs = await Promise.all(photos[cat].map(p=>squareThumb(p, 360)));
+      for(let i=0; i<thumbs.length; i+=columns){
+        ensureSpace(colWidth);
+        const row = thumbs.slice(i, i+columns);
+        row.forEach((src, idx)=>{
+          const x = marginX + idx*(colWidth+gap);
+          pdf.addImage(src, 'JPEG', x, ctx.y, colWidth, colWidth);
+        });
+        ctx.y += colWidth + gap;
+      }
+      ctx.y += 6;
+    }
+    ctx.y += 6;
+  }
+
+  const children = Array.from(rep.children);
+  for(const el of children){
+    if(el.classList.contains('rblock-fotos')){
+      await drawPhotosSection();
+    } else {
+      await placeBlock(el);
+    }
+  }
+
   return pdf;
 }
 
