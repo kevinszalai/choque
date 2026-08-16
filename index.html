@@ -89,6 +89,15 @@
   input[data-mono]{font-family:'IBM Plex Mono',monospace;font-size:15px;}
   textarea{resize:vertical;min-height:64px;}
   input:focus,textarea:focus{outline:none;border-color:var(--accent);background:#fff;}
+  .geobtn{
+    font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--accent-dark);
+    background:var(--accent-bg);border:none;border-radius:20px;padding:7px 12px;
+    cursor:pointer;flex-shrink:0;display:flex;align-items:center;gap:5px;
+  }
+  .geobtn::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;}
+  .geobtn:active{background:var(--accent);color:#fff;}
+  .geobtn:active::before{background:#fff;}
+  .geobtn:disabled{opacity:.6;}
   .subhead{font-size:11.5px;text-transform:uppercase;letter-spacing:0.6px;color:var(--accent);font-weight:700;margin:6px 0 8px;}
   .subhead:first-of-type{margin-top:0;}
 
@@ -193,7 +202,10 @@
         <div><label>Hora</label><input type="time" id="f_hora"></div>
         <div><label>Ciudad</label><input type="text" id="f_ciudad" placeholder="CABA"></div>
       </div>
-      <label>Lugar exacto (calle, altura, entre calles)</label>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:5px;">
+        <label style="margin-bottom:0;">Lugar exacto (calle, altura, entre calles)</label>
+        <button type="button" id="btnGeo" class="geobtn">Usar mi ubicación</button>
+      </div>
       <textarea id="f_lugar" placeholder="Ej: Av. Corrientes 3200, esquina Gascón"></textarea>
       <label>¿Cómo ocurrió?</label>
       <textarea id="f_dinamica" placeholder="Qué venía haciendo cada vehículo, quién impactó a quién, semáforo/prioridad, etc."></textarea>
@@ -316,6 +328,41 @@
 <div id="status" style="position:fixed;bottom:70px;left:0;right:0;"></div>
 
 <script>
+document.getElementById('btnGeo').addEventListener('click', ()=>{
+  const btn = document.getElementById('btnGeo');
+  if(!navigator.geolocation){
+    setStatus('Tu navegador no soporta ubicación. Escribila a mano.');
+    return;
+  }
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Ubicando...';
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const {latitude, longitude} = pos.coords;
+    try{
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`);
+      const data = await res.json();
+      const addr = data.address || {};
+      const street = [addr.road, addr.house_number].filter(Boolean).join(' ');
+      const city = addr.city || addr.town || addr.village || addr.suburb || addr.municipality || '';
+      document.getElementById('f_lugar').value = street || data.display_name || `Lat ${latitude.toFixed(5)}, Lon ${longitude.toFixed(5)}`;
+      const ciudadEl = document.getElementById('f_ciudad');
+      if(city && !ciudadEl.value.trim()) ciudadEl.value = city;
+      setStatus('Ubicación cargada.');
+    }catch(err){
+      document.getElementById('f_lugar').value = `Lat ${latitude.toFixed(5)}, Lon ${longitude.toFixed(5)}`;
+      setStatus('Se cargaron las coordenadas, no se pudo traducir a dirección.');
+    }
+    btn.disabled = false;
+    btn.textContent = original;
+    updateProgress();
+  }, err=>{
+    setStatus('No se pudo obtener tu ubicación. Revisá permisos de ubicación en Ajustes > Safari.');
+    btn.disabled = false;
+    btn.textContent = original;
+  }, {enableHighAccuracy:true, timeout:12000});
+});
+
 document.querySelectorAll('.sec-head').forEach(head=>{
   head.addEventListener('click', ()=>{
     head.closest('.card').classList.toggle('open');
