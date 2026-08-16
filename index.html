@@ -84,10 +84,14 @@
 
   label{display:block;font-size:12.5px;color:var(--ink-soft);margin-bottom:5px;font-weight:500;}
   input[type=text],input[type=date],input[type=time],textarea{
-    width:100%;min-width:0;border:1.5px solid var(--line);border-radius:9px;padding:12px 12px;
+    width:100%;min-width:0;max-width:100%;box-sizing:border-box;border:1.5px solid var(--line);border-radius:9px;padding:12px 12px;
     font-family:'Inter',sans-serif;font-size:16px;color:var(--ink);background:#FBFBF9;
     margin-bottom:12px;min-height:var(--tap);
   }
+  input[type=date],input[type=time]{
+    -webkit-appearance:none;appearance:none;display:block;
+  }
+  input[type=date]::-webkit-date-and-time-value{text-align:left;min-width:0;}
   input[data-mono]{font-family:'IBM Plex Mono',monospace;font-size:15px;}
   textarea{resize:vertical;min-height:64px;}
   input:focus,textarea:focus{outline:none;border-color:var(--accent);background:#fff;}
@@ -553,7 +557,7 @@ function buildReportHTML(){
           ${row('Testigos', val('o_testigos'))}
         </table>
         <div class="rdamage-wrap">
-          <div class="rdamage-col"><div class="rdlbl">Daños marcados</div><img src="${carSvgDataUri('otro')}"><div class="rdlist">${damageText('otro')}</div></div>
+          <div class="rdamage-col"><div class="rdlbl">Daños marcados</div><img src="${carSvgDataUri('otro')}" width="100" height="170"><div class="rdlist">${damageText('otro')}</div></div>
         </div>
       </div>
 
@@ -570,7 +574,7 @@ function buildReportHTML(){
           ${row('N° de póliza', val('m_poliza'))}
         </table>
         <div class="rdamage-wrap">
-          <div class="rdamage-col"><div class="rdlbl">Daños marcados</div><img src="${carSvgDataUri('mio')}"><div class="rdlist">${damageText('mio')}</div></div>
+          <div class="rdamage-col"><div class="rdlbl">Daños marcados</div><img src="${carSvgDataUri('mio')}" width="100" height="170"><div class="rdlist">${damageText('mio')}</div></div>
         </div>
       </div>
 
@@ -586,6 +590,15 @@ async function renderReportCanvas(){
   const rep = document.getElementById('report');
   rep.innerHTML = buildReportHTML();
   rep.style.top = '0px';
+  const imgs = Array.from(rep.querySelectorAll('img'));
+  await Promise.all(imgs.map(img=>{
+    if(img.complete && img.naturalWidth > 0) return Promise.resolve();
+    return new Promise(resolve=>{
+      img.onload = resolve;
+      img.onerror = resolve;
+    });
+  }));
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
   const canvas = await html2canvas(rep, {scale:2, backgroundColor:'#ffffff'});
   rep.style.top = '-99999px';
   return canvas;
